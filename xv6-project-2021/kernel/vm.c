@@ -313,10 +313,10 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
         pa = PTE2PA(*pte);
 
         //Midenizoume to flag write stis selides gia na mporei o goneas kai to paidi mono na diavazoun
-        *pte = *pte & ~PTE_W;
+        *pte &= ~(PTE_W);
 
-        //Kanoume to flag cow 1 se oles tis selides gia na kseroume argotera sta page faults oti einai selides cow
-        *pte = *pte | PTE_COW;
+        //Kanoume to flag cow (9o bit apo deksia) 1 se oles tis selides gia na kseroume argotera sta page faults oti einai selides cow
+        *pte |= PTE_COW;
 
         flags = PTE_FLAGS(*pte);
         if(mappages(new, i, PGSIZE, pa, flags) != 0){
