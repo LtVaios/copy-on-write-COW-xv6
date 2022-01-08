@@ -137,26 +137,27 @@ kvmmap(pagetable_t kpgtbl, uint64 va, uint64 pa, uint64 sz, int perm)
 int
 mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
 {
-  uint64 a, last;
-  pte_t *pte;
+    uint64 a, last;
+    pte_t *pte;
 
-  if(size == 0)
-    panic("mappages: size");
-  
-  a = PGROUNDDOWN(va);
-  last = PGROUNDDOWN(va + size - 1);
-  for(;;){
-    if((pte = walk(pagetable, a, 1)) == 0)
-      return -1;
-    if(*pte & PTE_V)
-      panic("mappages: remap");
-    *pte = PA2PTE(pa) | perm | PTE_V;
-    if(a == last)
-      break;
-    a += PGSIZE;
-    pa += PGSIZE;
-  }
-  return 0;
+    if(size == 0)
+        panic("mappages: size");
+
+    a = PGROUNDDOWN(va);
+    last = PGROUNDDOWN(va + size - 1);
+    for(;;){
+        if((pte = walk(pagetable, a, 1)) == 0)
+            return -1;
+        //Edw prosthesa kai ton elegxo oti mia selida tha prepei na einai valid kai na mhn einai COW gia na prokalesei panic
+        if((*pte & PTE_V) && !(*pte & PTE_COW))
+            panic("remap");
+        *pte = PA2PTE(pa) | perm | PTE_V;
+        if(a == last)
+            break;
+        a += PGSIZE;
+        pa += PGSIZE;
+    }
+    return 0;
 }
 
 // Remove npages of mappings starting from va. va must be
@@ -300,31 +301,35 @@ uvmfree(pagetable_t pagetable, uint64 sz)
 int
 uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 {
-  pte_t *pte;
-  uint64 pa, i;
-  uint flags;
-  char *mem;
+    pte_t *pte;
+    uint64 pa, i;
+    uint flags;
 
-  for(i = 0; i < sz; i += PGSIZE){
-    if((pte = walk(old, i, 0)) == 0)
-      panic("uvmcopy: pte should exist");
-    if((*pte & PTE_V) == 0)
-      panic("uvmcopy: page not present");
-    pa = PTE2PA(*pte);
-    flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto err;
-    memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem);
-      goto err;
+    for(i = 0; i < sz; i += PGSIZE){
+        if((pte = walk(old, i, 0)) == 0)
+            panic("uvmcopy: pte should exist");
+        if((*pte & PTE_V) == 0)
+            panic("uvmcopy: page not present");
+        pa = PTE2PA(*pte);
+
+        //Midenismos tou flag write stis selides gia na mporei o goneas kai to paidi mono na diavazoun
+        *pte = *pte & ~PTE_W;
+
+        //Kanoume to flag cow 1 se oles tis selides gia na kseroume argotera sta page faults oti einai selides cow
+        *pte = *pte | PTE_COW;
+
+        flags = PTE_FLAGS(*pte);
+        if(mappages(new, i, PGSIZE, pa, flags) != 0){
+            goto err;
+        }
+        //Auksanoume ton metrhth diergasiwn pou vlepoun auth thn selida afou molis egine copy apo kapoion
+        page_ref_inc(pa);
     }
-  }
-  return 0;
+    return 0;
 
- err:
-  uvmunmap(new, 0, i / PGSIZE, 1);
-  return -1;
+    err:
+    uvmunmap(new, 0, i, 1);
+    return -1;
 }
 
 // mark a PTE invalid for user access.
@@ -346,23 +351,58 @@ uvmclear(pagetable_t pagetable, uint64 va)
 int
 copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 {
-  uint64 n, va0, pa0;
+    pte_t* pte;
+    uint64 n, va0, pa0, err;
+    //new page and old page
+    uint64 n_page, o_page;
 
-  while(len > 0){
-    va0 = PGROUNDDOWN(dstva);
-    pa0 = walkaddr(pagetable, va0);
-    if(pa0 == 0)
-      return -1;
-    n = PGSIZE - (dstva - va0);
-    if(n > len)
-      n = len;
-    memmove((void *)(pa0 + (dstva - va0)), src, n);
+    while(len > 0){
+        va0 = PGROUNDDOWN(dstva);
+        pa0 = walkaddr(pagetable, va0);
+        if(pa0 == 0)
+            return -1;
 
-    len -= n;
-    src += n;
-    dstva = va0 + PGSIZE;
-  }
-  return 0;
+        //Elegxoume an to va0 einai swsto kai peta pairnoume to PTE tou mesw ths walk
+        pte = walk(pagetable, va0, 0);
+
+        //An to exoume markarei ws COW tote prepei na ftiaksoume kainouria selida
+        if(*pte & PTE_COW) {
+            //Kanoume to COW flag: 0  afou pleon einai kanonikh selida kai kanoume to WRITE flag 1 gia ton idio logo
+            int flgs = PTE_W | (PTE_FLAGS(*pte) ^ PTE_COW) ;
+
+            o_page = PTE2PA(*pte);
+            //Desmeuoume kainouria selida
+            n_page = (uint64) kalloc();
+
+            //An den yparxei mnhmh kai to kalloc() kanei fail tote termatizei h diergasia
+            if (n_page == 0)
+                exit(-1);
+
+            //Antigrafoume by memory thn palias COW selida sthn kainouria
+            memmove((char*)n_page, (char*)o_page, PGSIZE);
+
+            //Kanoume map thn kainouria diefthinsi sto pagetable
+            err = mappages(pagetable, va0, PGSIZE, n_page, flgs);
+            if (err == -1)
+                panic("error: could not mappages");
+
+            //Meiwnoume ton metrhth twn anaforwn apo diergasies sthn palia selida COW
+            page_ref_dec(o_page);
+
+            //Kanoume walk me ta kainouria dedomena
+            pa0 = walkaddr(pagetable, va0);
+        }
+
+        n = PGSIZE - (dstva - va0);
+        if(n > len)
+            n = len;
+        memmove((void *)(pa0 + (dstva - va0)), src, n);
+
+        len -= n;
+        src += n;
+        dstva = va0 + PGSIZE;
+    }
+    return 0;
 }
 
 // Copy from user to kernel.
