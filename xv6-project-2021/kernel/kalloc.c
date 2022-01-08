@@ -36,7 +36,7 @@ kinit() {
 
 //Auth h synarthsh meiwnei ton metrhth twn diergasiwn pou vlepoun se mia selida
 void
-page_ref_dec(uint64 page) {
+page_counters_dec(uint64 page) {
     //Vriskoume to katallhllo keli pinaka vriskontas ton arithmo selidas tou page kai afairontas thn teleftea desmeumenh thesh mnhmhs
     // (h teleftea thesh mnhmhs einai meta ton pinaka anaforwn pou exw, vlepe thn start_page_counters())
     //Meta diairoume me to PGSIZE gia na paroume thesh pinaka
@@ -49,7 +49,7 @@ page_ref_dec(uint64 page) {
 
 //Auth h synarthsh auksanei ton metrhth
 void
-page_ref_inc(uint64 page) {
+page_counters_inc(uint64 page) {
     kmem.pcounters[(PGROUNDDOWN((uint64)page) - (uint64)end) / PGSIZE]++;
 }
 
@@ -107,11 +107,11 @@ kfree(void *pa)
   //Elegxoume an h selida pou theloume na kanoume free exei akoma anafores apo diergasies epanw ths
   //An exei panw apo 1 anafores shmainei oti kapoia diergasia teleiwse kai prospathei na thn kanei free
   //Omws den prepei na giei free ara meiwnoume ton counter kata 1 kai epistrefoume an o counter eksakolouthei na einai panw apo 0
-  if (kmem.pcounters[(PGROUNDDOWN((uint64)pa) - (uint64)end) / PGSIZE] != 0)
+  if (kmem.pcounters[(PGROUNDDOWN((uint64)pa) - (uint64)end) / PGSIZE] != 0) {
       kmem.pcounters[(PGROUNDDOWN((uint64) pa) - (uint64) end) / PGSIZE] -= 1;
-
-  if (kmem.pcounters[(PGROUNDDOWN((uint64)pa) - (uint64)end) / PGSIZE] != 0)
-      return;
+      if (kmem.pcounters[(PGROUNDDOWN((uint64) pa) - (uint64) end) / PGSIZE] != 0)
+          return;
+  }
 
   // Fill with junk to catch dangling refs.
   memset(pa, 1, PGSIZE);

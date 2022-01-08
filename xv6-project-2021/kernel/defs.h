@@ -60,8 +60,8 @@ void            ramdiskintr(void);
 void            ramdiskrw(struct buf*);
 
 // kalloc.c
-void            page_ref_dec(uint64 pa);
-void            page_ref_inc(uint64 pa);
+void            page_counters_dec(uint64 pa);
+void            page_counters_inc(uint64 pa);
 void*           kalloc(void);
 void            kfree(void *);
 void            kinit(void);

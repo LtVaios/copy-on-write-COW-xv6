@@ -72,12 +72,12 @@ usertrap(void)
     //To scause me arithmo 15 einai PAGE FAULT pou proklithike apo write
     //Ara auta ta dyo mas endiaferoun
     else if((r_scause() == 15) || (r_scause() == 13)) {
-        p->killed = 1;
+
         //Apo to vivlio tou xv6 selida 47 xrhsimopoiontas to stval() mporoume na paroume thn selida pou prokalese to PF
         uint64 error_page = PGROUNDDOWN(r_stval());
 
         //H selida pou prokalese PF 'skotwnetai' an den htan COW (pio katw elegxoume an htan COW kai to anairoume auto stis COW)
-
+        p->killed = 1;
 
         //MAXVA einai h teleftea thesh mnhmhs mias diergasias (xv6 book: selida 26)
         //Xwris auton ton elegxo kanei faile to test MAXVAplus
@@ -112,7 +112,7 @@ usertrap(void)
                     panic("error: could not mappages");
 
                 //Meiwnoume ton metrhth twn anaforwn apo diergasies sthn palia selida COW
-                page_ref_dec(o_page);
+                page_counters_dec(o_page);
 
                 //H selida telika htan COW opote anairoume to killed
                 p->killed = 0;

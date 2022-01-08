@@ -312,7 +312,7 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
             panic("uvmcopy: page not present");
         pa = PTE2PA(*pte);
 
-        //Midenismos tou flag write stis selides gia na mporei o goneas kai to paidi mono na diavazoun
+        //Midenizoume to flag write stis selides gia na mporei o goneas kai to paidi mono na diavazoun
         *pte = *pte & ~PTE_W;
 
         //Kanoume to flag cow 1 se oles tis selides gia na kseroume argotera sta page faults oti einai selides cow
@@ -323,7 +323,7 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
             goto err;
         }
         //Auksanoume ton metrhth diergasiwn pou vlepoun auth thn selida afou molis egine copy apo kapoion
-        page_ref_inc(pa);
+        page_counters_inc(pa);
     }
     return 0;
 
@@ -362,7 +362,10 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
         if(pa0 == 0)
             return -1;
 
-        //Elegxoume an to va0 einai swsto kai peta pairnoume to PTE tou mesw ths walk
+        //Apo edw kai katw einai to vhma 4 ths ekfwnhshs pou the prepei h copyout otan synantaei selida COW
+        //na kanei oti kai h usertrap me ta page faults
+
+        //Elegxoume an to va einai egkyro kai meta pairnoume to PTE tou mesw ths walk
         pte = walk(pagetable, va0, 0);
 
         //An to exoume markarei ws COW tote prepei na ftiaksoume kainouria selida
@@ -378,18 +381,18 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
             if (n_page == 0)
                 exit(-1);
 
-            //Antigrafoume by memory thn palias COW selida sthn kainouria
+            //Antigrafoume by memory thn palia COW selida sthn kainouria
             memmove((char*)n_page, (char*)o_page, PGSIZE);
 
             //Kanoume map thn kainouria diefthinsi sto pagetable
             err = mappages(pagetable, va0, PGSIZE, n_page, flgs);
             if (err == -1)
-                panic("error: could not mappages");
+                panic("error: could not map pages");
 
             //Meiwnoume ton metrhth twn anaforwn apo diergasies sthn palia selida COW
-            page_ref_dec(o_page);
+            page_counters_dec(o_page);
 
-            //Kanoume walk me ta kainouria dedomena
+            //Kanoume walk ta kainouria dedomena kai thn kainouria va sto pagetable
             pa0 = walkaddr(pagetable, va0);
         }
 
