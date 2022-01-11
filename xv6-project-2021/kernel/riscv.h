@@ -340,7 +340,6 @@ sfence_vma()
 
 //Auto einai to diko mou flag COW pou symvolizei an mia selida einai COW h oxi (dhladh an einai selida anaforwn pou den mporei na grapsei kaneis)
 //Auto to flag apothikeuetai sthn 9h thesi tou adress pou einai ta RSW bit
-//Selida 31 tou xv6 book kefalaio 3.1 mporoume na to doume auyo sthn eikona 3.2
 #define PTE_COW (1L << 8)
 
 #define PTE_V (1L << 0) // valid

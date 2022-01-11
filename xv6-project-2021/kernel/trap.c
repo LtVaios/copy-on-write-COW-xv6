@@ -73,17 +73,17 @@ usertrap(void)
     //Ara auta ta dyo mas endiaferoun
     else if((r_scause() == 15) || (r_scause() == 13)) {
 
-        //Apo to vivlio tou xv6 selida 47 xrhsimopoiontas to stval() mporoume na paroume thn selida pou prokalese to PF
+        //Xrhsimopoiontas to stval() mporoume na paroume thn selida pou prokalese to PF
         uint64 error_page = PGROUNDDOWN(r_stval());
 
         //H selida pou prokalese PF 'skotwnetai' an den htan COW (pio katw elegxoume an htan COW kai to anairoume auto stis COW)
         p->killed = 1;
 
-        //MAXVA einai h teleftea thesh mnhmhs mias diergasias (xv6 book: selida 26)
+        //MAXVA einai h teleftea thesh mnhmhs mias diergasias
         //Xwris auton ton elegxo kanei faile to test MAXVAplus
         if (!(error_page >= MAXVA))
         {
-            //Pairnoume thn diefthinsi ths selida apo to pagetable
+            //Pairnoume to pte ths selida apo to pagetable
             pte_t* addr = walk(p->pagetable, error_page, 0);
 
             //An telika h selida einai COW

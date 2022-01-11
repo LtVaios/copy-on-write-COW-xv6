@@ -150,7 +150,7 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
             return -1;
         //Edw prosthesa kai ton elegxo oti mia selida tha prepei na einai valid kai na mhn einai COW gia na prokalesei panic
         if((*pte & PTE_V) && !(*pte & PTE_COW))
-            panic("remap");
+            panic("mappages: remap");
         *pte = PA2PTE(pa) | perm | PTE_V;
         if(a == last)
             break;
@@ -365,12 +365,12 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
         //Apo edw kai katw einai to vhma 4 ths ekfwnhshs pou the prepei h copyout otan synantaei selida COW
         //na kanei oti kai h usertrap me ta page faults
 
-        //Elegxoume an to va einai egkyro kai meta pairnoume to PTE tou mesw ths walk
+        //Elegxoume an to va einai egkyro to virtual address kai meta pairnoume to PTE tou mesw ths walk
         pte = walk(pagetable, va0, 0);
 
         //An to exoume markarei ws COW tote prepei na ftiaksoume kainouria selida
         if(*pte & PTE_COW) {
-            //Kanoume to COW flag: 0  afou pleon einai kanonikh selida kai kanoume to WRITE flag 1 gia ton idio logo
+            //Kanoume to COW flag: 0 kai to WRITE flag 1 giati tha ftiaksoume kainouria selida me auta ta flags
             int flgs = PTE_W | (PTE_FLAGS(*pte) ^ PTE_COW) ;
 
             o_page = PTE2PA(*pte);
@@ -392,7 +392,6 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
             //Meiwnoume ton metrhth twn anaforwn apo diergasies sthn palia selida COW
             page_counters_dec(o_page);
 
-            //Kanoume walk ta kainouria dedomena kai thn kainouria va sto pagetable
             pa0 = walkaddr(pagetable, va0);
         }
 
